@@ -17,35 +17,87 @@ public class BookManagerService extends Service {
 
     private static final String TAG = "WU-MENG";
 
-    private List<Book> mBookList = new ArrayList<>();
+    /**
+     * 图书列表
+     */
+    private final List<Book> mBookList = new ArrayList<>();
+
+    /**
+     * 接口实例的队列
+     */
+    private List<IOnNewBookArrivedListener> listeners = new ArrayList<>();
 
     @Override
     public void onCreate() {
         super.onCreate();
-        mBookList.add(new Book("Android开发艺术探究",00001));
-        mBookList.add(new Book("第一行代码",00002));
+        mBookList.add(new Book("Android开发艺术探究", 00001));
+        mBookList.add(new Book("第一行代码", 00002));
+        new Thread(new ServiceWorker()).start();
     }
 
     private Binder mBinder = new IBookManager.Stub() {
         @Override
         public void addBook(Book book) throws RemoteException {
-            synchronized(this) {
+            synchronized (this) {
                 if (book != null && !mBookList.contains(book)) {
                     mBookList.add(book);
-                    Log.d(TAG,"调用服务端的addBook()");
+                    Log.d(TAG, "调用服务端的addBook()");
                 }
             }
         }
 
         @Override
         public List<Book> getBookList() throws RemoteException {
-            Log.d(TAG,"调用服务端的getBookList()");
+            Log.d(TAG, "调用服务端的getBookList()");
             return mBookList;
+        }
+
+        // 注册
+        @Override
+        public void registerListener(IOnNewBookArrivedListener listener) throws RemoteException {
+            synchronized (this) {
+                if (listener != null && !listeners.contains(listener)) {
+                    listeners.add(listener);
+                    Log.d(TAG, "注册成功");
+                }
+            }
+        }
+
+        // 解注册
+        @Override
+        public void unregisterListener(IOnNewBookArrivedListener listener) throws RemoteException {
+            synchronized (this) {
+                listeners.remove(listener);
+                Log.d(TAG,"解注册成功");
+            }
         }
     };
 
     @Override
     public IBinder onBind(Intent intent) {
-       return mBinder;
+        return mBinder;
     }
+
+    private class ServiceWorker implements Runnable {
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Thread.sleep(5000);
+                    Book book = new Book("添加图书" + (mBookList.size() + 1), mBookList.size() + 1);
+                    onNewBookArrived(book);
+                } catch (InterruptedException | RemoteException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void onNewBookArrived(Book book) throws RemoteException {
+        mBookList.add(book);
+        for (int i = 0; i < listeners.size(); i++) {
+            listeners.get(i).onNewBookArrived(book);
+        }
+    }
+
 }
