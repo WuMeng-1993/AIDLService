@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -25,7 +26,7 @@ public class BookManagerService extends Service {
     /**
      * 接口实例的队列
      */
-    private List<IOnNewBookArrivedListener> listeners = new ArrayList<>();
+    private RemoteCallbackList<IOnNewBookArrivedListener> listeners = new RemoteCallbackList<>();
 
     @Override
     public void onCreate() {
@@ -56,10 +57,8 @@ public class BookManagerService extends Service {
         @Override
         public void registerListener(IOnNewBookArrivedListener listener) throws RemoteException {
             synchronized (this) {
-                if (listener != null && !listeners.contains(listener)) {
-                    listeners.add(listener);
-                    Log.d(TAG, "注册成功");
-                }
+                listeners.register(listener);
+                Log.d(TAG, "注册成功");
             }
         }
 
@@ -67,8 +66,10 @@ public class BookManagerService extends Service {
         @Override
         public void unregisterListener(IOnNewBookArrivedListener listener) throws RemoteException {
             synchronized (this) {
-                listeners.remove(listener);
-                Log.d(TAG,"解注册成功");
+                boolean value = listeners.unregister(listener);
+                if (value) {
+                    Log.d(TAG,"解注册成功");
+                }
             }
         }
     };
@@ -95,9 +96,14 @@ public class BookManagerService extends Service {
 
     private void onNewBookArrived(Book book) throws RemoteException {
         mBookList.add(book);
-        for (int i = 0; i < listeners.size(); i++) {
-            listeners.get(i).onNewBookArrived(book);
+        final int N = listeners.beginBroadcast();
+        for (int i = 0; i < N; i++) {
+            IOnNewBookArrivedListener listener = listeners.getBroadcastItem(i);
+            if (listener != null) {
+                listener.onNewBookArrived(book);
+            }
         }
+        listeners.finishBroadcast();
     }
 
 }
