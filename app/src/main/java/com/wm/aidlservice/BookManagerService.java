@@ -50,6 +50,7 @@ public class BookManagerService extends Service {
         @Override
         public List<Book> getBookList() throws RemoteException {
             Log.d(TAG, "调用服务端的getBookList()");
+            Log.d(TAG,"getBookList()线程是" + Thread.currentThread().getName());
             return mBookList;
         }
 
