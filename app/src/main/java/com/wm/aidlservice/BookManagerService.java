@@ -1,10 +1,12 @@
 package com.wm.aidlservice;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.Parcel;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.util.Log;
@@ -38,6 +40,28 @@ public class BookManagerService extends Service {
     }
 
     private Binder mBinder = new IBookManager.Stub() {
+
+        @Override
+        public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
+            String packageName = null;
+            String[] packages = getPackageManager().getPackagesForUid(getCallingUid());
+            if (packages != null && packages.length > 0) {
+                packageName = packages[0];
+            }
+
+            if (packageName == null) {
+                return false;
+            }
+
+            boolean result = checkPermission(BookManagerService.this,"com.wm.aidlservice.permission.ACCESS_BOOK_SERVICE",packageName);
+            if (!result) {
+                Log.d(TAG,"授权失败");
+                return false;
+            }
+
+            return super.onTransact(code, data, reply, flags);
+        }
+
         @Override
         public void addBook(Book book) throws RemoteException {
             synchronized (this) {
@@ -76,14 +100,24 @@ public class BookManagerService extends Service {
         }
     };
 
+    /**
+     * 检查权限
+     * @param mContext
+     * @param permissionName
+     * @param packageName
+     * @return
+     */
+    private boolean checkPermission(Context mContext,String permissionName,String packageName) {
+        int permission = mContext.getPackageManager().checkPermission(permissionName,packageName);
+        if (permission == PackageManager.PERMISSION_GRANTED) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     @Override
     public IBinder onBind(Intent intent) {
-        int result = checkCallingOrSelfPermission("com.wm.aidlservice.permission.ACCESS_BOOK_SERVICE");
-        if (result == PackageManager.PERMISSION_DENIED) {
-            Log.d(TAG,"授权失败");
-            return null;
-        }
-        Log.d(TAG,"授权成功");
         return mBinder;
     }
 
