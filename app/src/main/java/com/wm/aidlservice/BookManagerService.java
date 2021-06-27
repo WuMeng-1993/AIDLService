@@ -2,6 +2,7 @@ package com.wm.aidlservice;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteCallbackList;
@@ -77,6 +78,12 @@ public class BookManagerService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        int result = checkCallingOrSelfPermission("com.wm.aidlservice.permission.ACCESS_BOOK_SERVICE");
+        if (result == PackageManager.PERMISSION_DENIED) {
+            Log.d(TAG,"授权失败");
+            return null;
+        }
+        Log.d(TAG,"授权成功");
         return mBinder;
     }
 
